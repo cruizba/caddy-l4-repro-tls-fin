@@ -1,0 +1,25 @@
+{
+  "logging": {"logs": {"default": {"level": "INFO"}}},
+  "apps": {
+    "pki": {"certificate_authorities": {"local": {"install_trust": false}}},
+    "tls": {
+      "certificates": {"automate": ["localhost"]},
+      "automation": {"policies": [{"subjects": ["localhost"], "issuers": [{"module": "internal"}]}]}
+    },
+    "layer4": {
+      "servers": {
+        "tls": {
+          "listen": [":8443"],
+          "routes": [
+            {
+              "handle": [
+                {"handler": "tls"},
+                {"handler": "proxy", "upstreams": [{"dial": ["upstream:9000"]}]}
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+}

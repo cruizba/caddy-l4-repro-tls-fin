@@ -1,0 +1,29 @@
+services:
+  # Backend that answers "hello" and closes the connection right away.
+  upstream:
+    image: alpine/socat:latest
+    command: ["TCP-LISTEN:9000,fork,reuseaddr", "SYSTEM:echo hello"]
+
+  # Caddy with the layer4 tls + proxy handlers in front of the backend.
+  caddy:
+    build:
+      context: ./caddy
+      args:
+        CADDY_L4_REPO: ${CADDY_L4_REPO:-https://github.com/mholt/caddy-l4}
+        CADDY_L4_REF: ${CADDY_L4_REF:-master}
+    depends_on: [upstream]
+
+  # Prints every FIN and RST on Caddy's :8443, from inside Caddy's network namespace.
+  tcpdump:
+    image: nicolaka/netshoot:latest
+    network_mode: service:caddy
+    cap_add: [NET_ADMIN, NET_RAW]
+    command: ["tcpdump", "-i", "eth0", "-nn", "-l", "-tttt", "tcp port 8443 and (tcp[tcpflags] & (tcp-fin|tcp-rst) != 0)"]
+    depends_on: [caddy]
+
+  # TLS client that only looks at TCP after close_notify; run with `docker compose run client`.
+  client:
+    build: ./client
+    command: ["-addr", "caddy:8443"]
+    depends_on: [caddy]
+    profiles: [client]
